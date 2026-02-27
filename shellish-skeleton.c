@@ -6,6 +6,7 @@
 #include <sys/wait.h>
 #include <termios.h> // termios, TCSANOW, ECHO, ICANON
 #include <unistd.h>
+#include <fcntl.h> //for open()
 const char *sysname = "shellish";
 
 enum return_codes {
@@ -319,7 +320,7 @@ int process_command(struct command_t *command) {
       r = chdir(command->args[1]);
       if (r == -1)
         printf("-%s: %s: %s\n", sysname, command->name, strerror(errno));
-      return SUCCESS;
+     return SUCCESS;
     }
   }
 
@@ -333,10 +334,63 @@ int process_command(struct command_t *command) {
     /// This shows how to do exec with auto-path resolve
     // add a NULL argument to the end of args, and the name to the beginning
     // as required by exec
+    
+
+    // 2nd commit note:  I might add a dup2 fail safety check in the third commit
+
+    if (command->redirects[0]) {
+      int fd_in = open(command->redirects[0], O_RDONLY);
+      if (fd_in < 0) { 
+	perror("open input"); 
+	exit(1); }
+
+      dup2(fd_in, STDIN_FILENO);
+      close(fd_in);
+    }
+
+    if (command->redirects[1]) { // Cheking if the user typed something like ls > filename
+      int fd_out = open(command->redirects[1], O_WRONLY | O_CREAT | O_TRUNC, 0644); 
+      if (fd_out < 0) { 
+	perror("open output"); 
+	exit(1); }
+      dup2(fd_out, STDOUT_FILENO);
+      close(fd_out);
+    } // Anything in stdout printed, goes into the file
+
+    if (command->redirects[2]) { // Checking if the user typed something like ls >> filename  
+      int fd_app = open(command->redirects[2], O_WRONLY | O_CREAT | O_APPEND, 0644);
+      if (fd_app < 0) { 
+	perror("open append"); 
+	exit(1); }
+      dup2(fd_app, STDOUT_FILENO);
+      close(fd_app);
+    } // Output gets added to the end so no overwrite
+
+    // 2nd commit note: Not sure about the pipe logic I might change it in the 3rd commit
+    if (command->next) { //Checking if a pipe is used
+      int pipefd[2]; //To create a pipe
+      pipe(pipefd);
+      pid_t pid2 = fork();
+
+      if (pid2 == 0) {
+        dup2(pipefd[0], STDIN_FILENO);
+        close(pipefd[1]);
+        close(pipefd[0]);
+        process_command(command->next);
+        exit(0);
+
+      }
+      else {
+        dup2(pipefd[1], STDOUT_FILENO);
+        close(pipefd[0]);
+        close(pipefd[1]);
+      }
+    }
 
     // TODO: do your own exec with path resolving using execv()
     // do so by replacing the execvp call below
     char *path_env = getenv("PATH");
+    if (!path_env) { printf("command not found\n"); exit(127); } // To assure that the path exists (commit 2 fix)
     char *path_copy = strdup(path_env);
     char *dir = strtok(path_copy, ":");
     char full_path[1024];
@@ -357,12 +411,13 @@ int process_command(struct command_t *command) {
 
     printf("command not found\n");
     exit(127);
+
   } else {
     // TODO: implement background processes here
 
     if (command->background) printf("[Background] PID: %d\n", pid);  
  
-    else wait(0);
+    else waitpid(pid, NULL, 0); //insead of wait(0) to not wait for any child but specific ones (second commit fix)
 
     return SUCCESS;
   }
