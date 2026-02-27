@@ -15,6 +15,8 @@ enum return_codes {
   UNKNOWN = 2,
 };
 
+// change
+
 struct command_t {
   char *name;
   bool background;
