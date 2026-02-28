@@ -326,6 +326,50 @@ int process_command(struct command_t *command) {
     }
   }
 
+
+  // Chatroom command starts here
+  //4th commit note: I used as fixed aray size for the messages but I might consider using a dynamic memory allocation 
+  //reference for the mkfifo() : https://www.geeksforgeeks.org/cpp/named-pipe-fifo-example-c-program/
+  
+  if (strcmp(command->name, "chatroom") == 0) { //if the user typed in chatroom command
+
+
+    if (command->arg_count < 4 || command->args[1] == NULL || command->args[2] == NULL) {
+      printf("Usage: chatroom <roomname> <username>\n");
+      return SUCCESS;
+    } // Checks if it is a valid input for the command chatroom
+
+    const char *roomname = command->args[1];
+    const char *username = command->args[2];
+
+
+    char roomdir[PATH_MAX];
+    snprintf(roomdir, sizeof(roomdir), "/tmp/chatroom-%s", roomname);
+
+   
+    if (mkdir(roomdir, 0777) == -1) { //if the room exists/it cannot be created 
+       // 0777: everytone can read write and execute the chatroom  (execute as in enter the chat)
+      if (errno != EEXIST) {  //if the error stems from something other than the file having been already created before 
+        //just prints the error and flags the process as a success, no longer continues
+        printf("-%s: chatroom: mkdir: %s\n", sysname, strerror(errno));
+        return SUCCESS;
+      }
+    }  // creates room directory if it doesnt exist
+
+    
+    char myfifo[PATH_MAX];
+    snprintf(myfifo, sizeof(myfifo), "%s/%s", roomdir, username);
+
+    if (mkfifo(myfifo, 0666) == -1) {
+    //0666: Eveyone can read and write but not execute, 
+      if (errno != EEXIST) {
+        printf("-%s: chatroom: mkfifo: %s\n", sysname, strerror(errno));
+        return SUCCESS;
+      }
+    } //creates user's name pipe with mkfifo 
+
+  //5t commmit will start here
+
   pid_t pid = fork();
   if (pid == 0) // child
   {
