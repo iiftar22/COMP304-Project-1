@@ -366,9 +366,55 @@ int process_command(struct command_t *command) {
         printf("-%s: chatroom: mkfifo: %s\n", sysname, strerror(errno));
         return SUCCESS;
       }
-    } //creates user's name pipe with mkfifo 
+  } //creates user's name pipe with mkfifo 
 
   //5t commmit will start here
+
+  //Note to self: Do not forget to add #include <limits.h>
+
+    printf("Welcome to %s!\n", roomname); //welcome message printed
+
+    
+    pid_t reciever_pid_child = fork(); // fork here to create a process (duplicating)
+
+    // error check
+    if  (reciever_pid_child == -1) {
+      printf("-%s: chatroom: fork: %s\n", sysname, strerror(errno));
+      return SUCCESS;
+    } 
+
+    // Two processes one for wiritng and one for sending the message and one for 
+    //recieving the message 
+
+    #define BUF_SIZE 4096
+
+    if  (reciever_pid_child == 0) { // detecting if child process 
+    do {
+
+        int fd = open(myfifo, O_RDONLY);
+        if (fd < 0) _exit(99); //error exit 
+
+        
+        char rbuf[BUF_SIZE];
+
+        ssize_t n = read(fd, rbuf, sizeof(rbuf));
+        
+        while (n > 0) { //if there is a message 
+
+        write(STDOUT_FILENO, rbuf, n);  
+
+        n = read(fd, rbuf, sizeof(rbuf));
+
+        }
+        close(fd);
+
+      } while (1); //infinite loop 
+
+      _exit(0);
+    }
+
+
+    // start here fot the 6th commit 
 
   pid_t pid = fork();
   if (pid == 0) // child
