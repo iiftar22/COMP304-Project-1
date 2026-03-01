@@ -9,9 +9,13 @@ h, m and s corresponds to hours, minutes and seconds. the user must use exactly 
 The timer command uses colors, emojis and sounds to make the terminal usage more interesting. I gave a lot of attention for the timer to be readeable.
 
 Here are some valid ways to use this command:
+
+
 <img width="534" height="195" alt="timer command " src="https://github.com/user-attachments/assets/0bc4a778-aebb-4c4a-898d-9b8b7534431c" />
 
 And some invalid ways:
+
+
 <img width="537" height="192" alt="timer command invalid " src="https://github.com/user-attachments/assets/28d00af5-6e71-40e5-9305-5514ea7d24b0" />
 
 Technical: I utilized a foreground process to restrict the user from typing any other commands while the 
