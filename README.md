@@ -5,8 +5,21 @@ Repo Link: https://github.com/iiftar22/COMP304-Project-1.git
 I implemented the function process_command(struct command_t *command) as the main fucntion of my shell
 It receives a parsed command structure and decides whether to execute it as a built-in command (handled inside the shell) or as an external command (executed via fork() + exec()) while also supporting redirection and pipelines.
 
+To run the shell: 
+
+    gcc -std=99 -o shell-ish shell-ish-skeleton.c
+    ./shel-ish
+
+I use these two commands
+
 
 Chatroom Command:
+
+I implemented chatroom as a built-in command that creates a simple multi-user chat system using named pipes (FIFOs). Each chatroom corresponds to a directory under /tmp, and each user in that room owns a FIFO file inside that directory. Messages are transmitted by writing into other users’ FIFOs, and each user continuously reads from their own FIFO to receive incoming messages.
+
+I split the program into two processes using fork(): one process is responsible for receiving messages, and the other handles sending messages. The receiver process continuously listens to the user’s FIFO and prints any incoming messages to the screen as soon as they arrive. Meanwhile, the parent process remains interactive, allowing the user to type messages. When the user sends a message, it is formatted and written to the FIFO of every other user in the same room directory.
+This separation ensures that receiving messages does not block user input, allowing both actions to happen smoothly and concurrently. When the user exits the chatroom, I properly terminate the receiver process and wait for it to finish, ensuring that no background processes remain and the program shuts down cleanly.
+
 
 
 <img width="1352" height="637" alt="Chatroom 1" src="https://github.com/user-attachments/assets/8e991db6-bde5-4cc6-90d3-d6531258a269" />
@@ -14,6 +27,11 @@ Chatroom Command:
 <img width="1408" height="691" alt="Chatroom 2" src="https://github.com/user-attachments/assets/fe21200c-d4f0-40c3-9e12-7c578406fa95" />
 
 
+Note that to get out out the chatroom mode, the user has to type exit or /exit
+
+
+References :
+https://www.geeksforgeeks.org/cpp/named-pipe-fifo-example-c-program/
 
 Custom (Built-in) Command: Timer Command
 
