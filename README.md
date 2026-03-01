@@ -1,12 +1,21 @@
 SHELLISH - Assignment 1 COMP 304
 
+Repo Link: https://github.com/iiftar22/COMP304-Project-1.git
+
 I implemented the function process_command(struct command_t *command) as the main fucntion of my shell
 It receives a parsed command structure and decides whether to execute it as a built-in command (handled inside the shell) or as an external command (executed via fork() + exec()) while also supporting redirection and pipelines.
 
 
+Chatroom Command:
 
 
-Custom Command: Timer Command
+<img width="1352" height="637" alt="Chatroom 1" src="https://github.com/user-attachments/assets/8e991db6-bde5-4cc6-90d3-d6531258a269" />
+
+<img width="1408" height="691" alt="Chatroom 2" src="https://github.com/user-attachments/assets/fe21200c-d4f0-40c3-9e12-7c578406fa95" />
+
+
+
+Custom (Built-in) Command: Timer Command
 
 This command lets the user set a timer that occupies the shell and showcases the time laps in the terminal. It accepts the folowing format 
 
