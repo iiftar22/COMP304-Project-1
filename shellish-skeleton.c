@@ -7,7 +7,7 @@
 #include <termios.h> // termios, TCSANOW, ECHO, ICANON
 #include <unistd.h>
 #include <fcntl.h> //for open()
-#include <limits.h>
+#define PATH_MAX 4096
 #include <dirent.h>
 #include <signal.h>
 #include <sys/stat.h>
@@ -336,6 +336,39 @@ int process_command(struct command_t *command) {
     }
   }
 
+// timer command (custom)
+
+if (strcmp(command->name, "timer") == 0) {
+
+    if (command->arg_count < 2) {
+        printf("Usage: timer <minutes>\n");
+        return SUCCESS;
+    }
+
+    int minutes = atoi(command->args[1]); //takes how many minutes the user wanted as minutes
+
+    if (minutes <= 0) { // validty check
+        printf("Please use the timer command again and enter a positive number.\n");
+        return SUCCESS;
+    }
+
+    pid_t tpid = fork();
+    if (tpid < 0) {
+        printf("timer fork failed: %s\n", strerror(errno));
+        return SUCCESS;
+    }
+
+    if (tpid == 0) {  // detect the child process
+        sleep((unsigned int)minutes * 60);
+        printf("\n[TIMER] %d minutes passed!\n", minutes);
+        fflush(stdout);
+        _exit(0);
+    }
+
+    printf("[TIMER] Timer started for %d minutes \n", minutes);
+    return SUCCESS;
+}
+
 
   // Chatroom command starts here
   //4th commit note: I used as fixed aray size for the messages but I might consider using a dynamic memory allocation 
@@ -353,7 +386,7 @@ int process_command(struct command_t *command) {
     const char *username = command->args[2];
 
 
-    char roomdir[PATH_MAX];
+    char roomdir[4096];
     snprintf(roomdir, sizeof(roomdir), "/tmp/chatroom-%s", roomname);
 
    
@@ -367,7 +400,7 @@ int process_command(struct command_t *command) {
     }  // creates room directory if it doesnt exist
 
     
-    char myfifo[PATH_MAX];
+    char myfifo[4096];
     snprintf(myfifo, sizeof(myfifo), "%s/%s", roomdir, username);
 
     if (mkfifo(myfifo, 0666) == -1) {
