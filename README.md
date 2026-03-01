@@ -60,3 +60,9 @@ Display Format: The countdown is dynamically updated on a single terminal line u
 Color Design: I used ANSI escape codes to enhance visual feedback. The countdown text appears in green during normal operation and switches to red during the final ten seconds.
 
 Sound design: I generated an audible alert during the final five seconds by writing the ASCII Bell character (\a) directly to standard output using the write() system call. I chose to use write() instead of printf() to ensure immediate, low-level output without relying on buffered I/O mechanisms.
+
+References: 
+https://d-libro.com/topic/foreground-and-background-jobs/
+https://gist.github.com/JBlond/2fea43a3049b38287e5e9cefc87b2124
+https://www.ascii-code.com/character/␇
+https://stackoverflow.com/questions/287871/how-do-i-print-colored-text-to-the-terminal
