@@ -7,6 +7,13 @@
 #include <termios.h> // termios, TCSANOW, ECHO, ICANON
 #include <unistd.h>
 #include <fcntl.h> //for open()
+#include <limits.h>
+#include <dirent.h>
+#include <signal.h>
+#include <sys/stat.h>
+#define MSG_SIZE 4096
+#define BUF_SIZE 4096
+
 const char *sysname = "shellish";
 
 enum return_codes {
@@ -310,6 +317,9 @@ int prompt(struct command_t *command) {
 }
 
 int process_command(struct command_t *command) {
+
+  while (waitpid(-1, NULL, WNOHANG) > 0) {}
+
   int r;
   if (strcmp(command->name, "") == 0)
     return SUCCESS;
@@ -386,7 +396,6 @@ int process_command(struct command_t *command) {
     // Two processes one for wiritng and one for sending the message and one for 
     //recieving the message 
 
-    #define BUF_SIZE 4096
 
     if  (reciever_pid_child == 0) { // detecting if child process 
     do {
@@ -415,6 +424,77 @@ int process_command(struct command_t *command) {
 
 
     // start here fot the 6th commit 
+  
+   char msg[MSG_SIZE];
+
+    while (true) {
+      printf("[%s] %s > <write your message here>\n", roomname, username);
+      
+      fflush(stdout); // ensures the prompt appears before reading input
+    
+      // https://www.quora.com/What-does-fflush-stdout-do-in-C-and-how-do-you-use-it reference for fflush
+
+      if (fgets(msg, sizeof(msg), stdin) == NULL) { // if the user does not enter anything
+      
+       break;
+      }
+
+      msg[strcspn(msg, "\n")] = '\0'; // Since fgets puts a new line character once the user presses enter
+
+      if (strcmp(msg, "/exit") == 0 || strcmp(msg, "exit") == 0) break;
+      
+   
+      char out[BUF_SIZE];
+
+      snprintf(out, sizeof(out), "[%s] %s: %s\n", roomname, username, msg);
+
+      DIR *d = opendir(roomdir);
+
+      if (!d) {
+            printf("-%s: chatroom: opendir: %s\n", sysname, strerror(errno));
+            continue;
+            }
+
+      struct dirent *de;
+      while ((de = readdir(d)) != NULL) {
+        
+        if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0) continue;
+
+        if (strcmp(de->d_name, username) == 0) continue;
+
+        char otherfifo[1024];
+        snprintf(otherfifo, sizeof(otherfifo), "%s/%s", roomdir, de->d_name);
+
+   
+        pid_t spid = fork();
+        if (spid < 0) { 
+          printf("-%s: chatroom: fork: %s\n", sysname, strerror(errno));
+          continue; 
+        } 
+        if (spid == 0) {
+
+          int wfd = open(otherfifo, O_WRONLY | O_NONBLOCK);
+          if (wfd < 0) {
+           
+            _exit(0);
+          }
+          (void)write(wfd, out, strlen(out));
+          close(wfd);
+          _exit(0);
+        }
+      }
+
+      closedir(d);
+
+      while (waitpid(-1, NULL, WNOHANG) > 0) {}
+    }
+
+   
+    kill(reciever_pid_child, SIGTERM); //kills the infinete loop above
+    waitpid(reciever_pid_child, NULL, 0); 
+
+    return SUCCESS;
+  }
 
   pid_t pid = fork();
   if (pid == 0) // child
