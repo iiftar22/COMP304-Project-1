@@ -12,6 +12,12 @@ To run the shell:
 
 I use these two commands
 
+Part 1 and 2:
+
+
+<img width="711" height="247" alt="Basic Commands Part 1 and 2" src="https://github.com/user-attachments/assets/6192702c-ec20-46a5-be59-1e6c4bb4ce81" />
+
+So redirection characters work as wanted in the assignemtn
 
 Chatroom Command:
 
