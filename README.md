@@ -7,7 +7,7 @@ It receives a parsed command structure and decides whether to execute it as a bu
 
 To run the shell: 
 
-    gcc -std=99 -o shell-ish shell-ish-skeleton.c
+    gcc -std=c99 -o shell-ish shell-ish-skeleton.c
     ./shel-ish
 
 I use these two commands
