@@ -1,8 +1,16 @@
+SHELLISH - Assignment 1 COMP 304
+
+I implemented the function process_command(struct command_t *command) as the main fucntion of my shell
+It receives a parsed command structure and decides whether to execute it as a built-in command (handled inside the shell) or as an external command (executed via fork() + exec()) while also supporting redirection and pipelines.
+
+
+
+
 Custom Command: Timer Command
 
 This command lets the user set a timer that occupies the shell and showcases the time laps in the terminal. It accepts the folowing format 
 
-                                                            timer [positive int][h/m/s]
+    timer [positive int][h/m/s]
                                                             
 h, m and s corresponds to hours, minutes and seconds. the user must use exactly one suffix and cannot choose anything other than h, m, s
 
