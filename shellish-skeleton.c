@@ -1,18 +1,29 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
-#include <termios.h> // termios, TCSANOW, ECHO, ICANON
+#include <termios.h>
 #include <unistd.h>
-#include <fcntl.h> //for open()
-#define PATH_MAX 4096
+#include <fcntl.h>
 #include <dirent.h>
 #include <signal.h>
 #include <sys/stat.h>
+#include <ctype.h>
+#define PATH_MAX 4096
 #define MSG_SIZE 4096
 #define BUF_SIZE 4096
+
+
+static volatile sig_atomic_t timer_cancelled = 0;
+
+static void timer_sigint_handler(int signo) {
+    (void)signo;
+    timer_cancelled = 1;
+}
 
 const char *sysname = "shellish";
 
@@ -318,7 +329,7 @@ int prompt(struct command_t *command) {
 
 int process_command(struct command_t *command) {
 
-  while (waitpid(-1, NULL, WNOHANG) > 0) {}
+  while (waitpid(-1, NULL, WNOHANG) > 0) {} // cleans up any previously terminated child processes to avoid zombie processes
 
   int r;
   if (strcmp(command->name, "") == 0)
@@ -336,39 +347,226 @@ int process_command(struct command_t *command) {
     }
   }
 
-// timer command (custom)
+	//cut command 3rd commit
+    // 3rd Commit Note: I thought about using realloc/free because I dont know how many fields the user will input but I will asume that it is under 300 for now
+
+ if (strcmp(command->name, "cut") == 0) { // to not use fork and execv, to treat it as a builtin command 
+
+  char delimiter = '\t';
+  char fields_buf_temp[1024];   
+  int have_fields = 0;
+  int fields[300];
+  int fields_count = 0;
+
+
+  for (int i = 1; i < command->arg_count - 1; i++) {
+    if (command->args[i] == NULL) break;
+
+    // parsing option -d :
+    if ((strcmp(command->args[i], "-d") == 0 || strcmp(command->args[i], "--delimiter") == 0) && 
+        (i + 1 < command->arg_count - 1) && command->args[i + 1] != NULL) {
+      delimiter = command->args[i + 1][0];
+      i++;
+    } 
+    
+    // parsing options -f : Copying the numbers user typed into the buffer
+    if ((strcmp(command->args[i], "-f") == 0 || strcmp(command->args[i], "--fields") == 0) &&
+               (i + 1 < command->arg_count - 1) && command->args[i + 1] != NULL) {
+      
+      snprintf(fields_buf_temp, sizeof(fields_buf_temp), "%s", command->args[i + 1]);
+      have_fields = 1;
+      i++;
+    }
+  }
+
+  // if there is no -f have_fields stays 0 logically
+  if (have_fields == 0) {
+    return SUCCESS;
+  } 
+
+  char *saveptr = NULL;
+  char *output = strtok_r(fields_buf_temp, ",", &saveptr); // To create the output with commas in between the number and appointing a pointer to the output
+  while (output != NULL) {
+  while (*output == ' ' || *output == '\t') output++; // To skip white spaces if there are any
+
+  //3rd commit note: I did not use atoi() because I wanted to check whether the character is an integer or not  
+
+  int val = 0; // the integer value
+  int valid = 1; //is it a valid number check: for edge cases 
+  for (char *p = output; *p; p++) {
+    if (!isdigit((unsigned char)*p)) { valid = 0; break; }
+    val = val * 10 + (*p - '0'); // ASCII numbers 
+  }
+
+  if (valid && val > 0 && val <= 300 && fields_count < 300) {
+    fields[fields_count++] = val;      
+  }
+
+  output = strtok_r(NULL, ",", &saveptr);
+}
+  if (fields_count == 0) {
+    return SUCCESS;
+  }
+
+  
+  char line[4096];
+  while (fgets(line, sizeof(line), stdin) != NULL) { // read the input with fgets, I used this because it is more secure than gets
+    int len = (int)strlen(line);
+    if (len > 0 && line[len - 1] == '\n') {
+      line[len - 1] = '\0';
+      len--;
+    }
+
+    int start[301];
+    int end[301];
+    for (int i = 0; i <= 300; i++) {   
+      start[i] = -1;
+      end[i] = -1;
+    }
+
+    int field = 1;
+    int s = 0;
+    for (int i = 0; i <= len; i++) {
+      if (i == len || line[i] == delimiter) {
+        if (field <= 300) {           
+          start[field] = s;
+          end[field] = i; 
+        }
+        field++;
+        s = i + 1;
+        if (field > 300) break;       
+      }
+    }
+
+  
+    for (int k = 0; k < fields_count; k++) {
+      if (k > 0) putchar(delimiter);
+
+      int fidx = fields[k];
+      if (fidx >= 1 && fidx <= 300 && start[fidx] != -1 && end[fidx] != -1) { 
+        int a = start[fidx];
+        int b = end[fidx];
+        if (a >= 0 && b >= a && b <= len) {
+          fwrite(line + a, 1, (size_t)(b - a), stdout);
+        }
+      }
+    }
+    putchar('\n');
+  }
+
+  return SUCCESS;
+}
+
+
+// timer command (foreground countdown)
+// references https://d-libro.com/topic/foreground-and-background-jobs/
 
 if (strcmp(command->name, "timer") == 0) {
 
-    if (command->arg_count < 2) {
-        printf("Usage: timer <minutes>\n");
+    if (command->arg_count < 2 || command->args[1] == NULL) {
+        printf("Usage: timer <number>s | <number>m | <number>h\n");
         return SUCCESS;
     }
 
-    int minutes = atoi(command->args[1]); //takes how many minutes the user wanted as minutes
+    char argbuf[64];
+    strncpy(argbuf, command->args[1], sizeof(argbuf) - 1);
+    argbuf[sizeof(argbuf) - 1] = '\0';
 
-    if (minutes <= 0) { // validty check
-        printf("Please use the timer command again and enter a positive number.\n");
+    int len = (int)strlen(argbuf);
+    if (len < 2) {
+        printf("Usage: timer <number>s | <number>m | <number>h\n");
         return SUCCESS;
     }
 
-    pid_t tpid = fork();
-    if (tpid < 0) {
-        printf("timer fork failed: %s\n", strerror(errno));
+    char unit = argbuf[len - 1];
+    if (unit != 's' && unit != 'm' && unit != 'h') {
+        printf("Invalid unit '%c'. Use s, m, or h.\n", unit);
+        printf("Usage: timer <number>s | <number>m | <number>h\n");
         return SUCCESS;
     }
 
-    if (tpid == 0) {  // detect the child process
-        sleep((unsigned int)minutes * 60);
-        printf("\n[TIMER] %d minutes passed!\n", minutes);
-        fflush(stdout);
-        _exit(0);
+    argbuf[len - 1] = '\0'; // strip unit, leave only digits
+
+    // Validate: must be all digits
+    for (int i = 0; argbuf[i] != '\0'; i++) {
+        if (argbuf[i] < '0' || argbuf[i] > '9') {
+            printf("Invalid time value. Use digits followed by s/m/h (e.g., 10s, 5m, 1h).\n");
+            return SUCCESS;
+        }
     }
 
-    printf("[TIMER] Timer started for %d minutes \n", minutes);
-    return SUCCESS;
+    int value = atoi(argbuf);
+    if (value <= 0) {
+        printf("Please enter a positive number (e.g., 10s, 5m, 1h).\n");
+        return SUCCESS;
+    }
+
+    long total_seconds_long = 0;
+    if (unit == 's') total_seconds_long = (long)value;
+    if (unit == 'm') total_seconds_long = (long)value * 60L;
+    if (unit == 'h') total_seconds_long = (long)value * 3600L;
+
+    // avoid overflow into int
+    if (total_seconds_long > 24L * 3600L * 365L) { // optional sanity limit: 1 year
+        printf("Timer value too large.\n");
+        return SUCCESS;
+    }
+
+    int total_seconds = (int)total_seconds_long;
+
+    // Install temporary SIGINT handler (Ctrl+C) just for the timer
+    struct sigaction old_sa, sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = timer_sigint_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+
+    timer_cancelled = 0;
+    sigaction(SIGINT, &sa, &old_sa);
+
+    printf("⌛ Timer started (%d%c) (Ctrl+C to cancel) ⌛\n", value, unit);
+
+    for (int left = total_seconds; left >= 0; left--) {
+
+        if (timer_cancelled) {
+            printf("\033[0m\n🛑 Timer cancelled.\n");
+            sigaction(SIGINT, &old_sa, NULL);
+            return SUCCESS;
+        }
+
+
+        
+
+       int hh, mm, ss, total_minutes;
+
+       hh = left / 3600;
+       mm = (left % 3600) / 60;
+       ss = left % 60;
+
+       /* choose color */
+       if (left <= 10) printf("\033[1;31m");
+       else printf("\033[1;32m");
+
+       /* display: HH:MM:SS if 1 hour or more, otherwise MM:SS */
+      if (left >= 3600) {
+         printf("\r%02d:%02d:%02d left... ", hh, mm, ss);
+      } else {
+      total_minutes = left / 60;
+      printf("\r%02d:%02d left... ", total_minutes, ss);
+
 }
 
+printf("\033[0m");
+fflush(stdout);
+
+        sleep(1);
+    }
+
+    printf("\n⏰ Timer finished!\n");
+
+    sigaction(SIGINT, &old_sa, NULL);
+    return SUCCESS;
+}
 
   // Chatroom command starts here
   //4th commit note: I used as fixed aray size for the messages but I might consider using a dynamic memory allocation 
@@ -433,9 +631,8 @@ if (strcmp(command->name, "timer") == 0) {
     if  (reciever_pid_child == 0) { // detecting if child process 
     do {
 
-        int fd = open(myfifo, O_RDONLY);
-        if (fd < 0) _exit(99); //error exit 
-
+        int fd = open(myfifo, O_RDWR);
+        if (fd < 0) _exit(99);
         
         char rbuf[BUF_SIZE];
 
@@ -506,14 +703,16 @@ if (strcmp(command->name, "timer") == 0) {
         } 
         if (spid == 0) {
 
-          int wfd = open(otherfifo, O_WRONLY | O_NONBLOCK);
-          if (wfd < 0) {
-           
-            _exit(0);
-          }
-          (void)write(wfd, out, strlen(out));
-          close(wfd);
-          _exit(0);
+
+        int wfd = open(otherfifo, O_WRONLY);
+
+        if (wfd < 0) {
+             _exit(0);
+        }
+        (void)write(wfd, out, strlen(out));
+        close(wfd);
+        _exit(0);
+
         }
       }
 
