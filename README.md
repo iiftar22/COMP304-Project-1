@@ -1,6 +1,23 @@
+Custom Command: Timer Command
 
-Here are some valid ways to use the timer command: 
+This command lets the user set a timer that occupies the shell and showcases the time laps in the terminal. It accepts the folowing format 
 
+                                                            timer [positive int][h/m/s]
+                                                            
+h, m and s corresponds to hours, minutes and seconds. the user must use exactly one suffix and cannot choose anything other than h, m, s
+
+The timer command uses colors, emojis and sounds to make the terminal usage more interesting. I gave a lot of attention for the timer to be readeable.
+
+Here are some valid ways to use this command:
 <img width="534" height="195" alt="timer command " src="https://github.com/user-attachments/assets/0bc4a778-aebb-4c4a-898d-9b8b7534431c" />
 
+And some invalid ways:
 <img width="537" height="192" alt="timer command invalid " src="https://github.com/user-attachments/assets/28d00af5-6e71-40e5-9305-5514ea7d24b0" />
+
+Technical: I utilized a foreground process to restrict the user from typing any other commands while the 
+
+Display Format: The countdown is dynamically updated on a single terminal line using the carriage return character (\r) to overwrite previous output. The time is displayed in HH:MM:SS format when at least o1 hour remains and automatically switches to MM:SS format once the remaining time drops below 1 hour.
+
+Color Design: I used ANSI escape codes to enhance visual feedback. The countdown text appears in green during normal operation and switches to red during the final ten seconds.
+
+Sound design: I generated an audible alert during the final five seconds by writing the ASCII Bell character (\a) directly to standard output using the write() system call. I chose to use write() instead of printf() to ensure immediate, low-level output without relying on buffered I/O mechanisms.
